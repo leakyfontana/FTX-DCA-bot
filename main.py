@@ -1,6 +1,6 @@
 import os
 from classes.coin import Coin
-from ftx import FtxClient
+from classes.ftx import FtxClient
 
 
 def setCoins():
