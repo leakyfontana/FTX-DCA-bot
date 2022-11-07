@@ -1,15 +1,11 @@
 import os
-
-from pyparsing import null_debug_action
 from classes.coin import Coin
-from ftx import get
-import json
+from ftx import FtxClient
 
 
 def setCoins():
 
-    response = get('/wallet/balances')
-    balances = response['result']
+    balances = FtxClient()._get('/wallet/balances')
 
     coins = {}
     for coin in balances:
@@ -49,26 +45,37 @@ def getPurchaseDist():
 
     return order
 
+def calcSize(buyTicker: str, sellTicker: str, distBuyAmount: float):
+    price = FtxClient()._get(f'/markets/{buyTicker}/{sellTicker}')['price']
+    return distBuyAmount / price;
+
+
 def dca():
     coins = setCoins()
     purchaseDist = getPurchaseDist()
 
     sellTicker = os.getenv("SELL")
     sellAmount = coins[sellTicker].total
-    buyAmount = int(os.getenv("AMOUNT"))
+    buyAmount = float(os.getenv("AMOUNT"))
     if  sellAmount < buyAmount:
         diff = buyAmount - sellAmount
         raise Exception(f'Insufficient funds: Please deposit {diff} {sellTicker}')
     
+    distBuyAmount = buyAmount / len(purchaseDist);
     for key in purchaseDist:
         data = {}
         data['market'] = f'{key}/{sellTicker}'
         data['side'] = 'buy'
         data['price'] = None
         data['type'] = 'market'
-        
+        orderSize = calcSize(key, sellTicker, distBuyAmount)
+        data['size'] = orderSize
 
-        print(data)
+        print(f'purchasing {orderSize} {key}')
+
+        response = FtxClient()._post('/orders', data)
+
+        print(response)
 
     
 if __name__ == "__main__":
